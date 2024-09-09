@@ -47,11 +47,11 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__OHOS__)
 extern char **environ;
 #endif
 
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OHOS__)
 typedef sig_t sighandler_t;
 #endif
 
