@@ -657,20 +657,20 @@ int main(int argc, char **argv)
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, jsc_module_loader, NULL);
 
-    if (output_type != OUTPUT_RAW_BINARY) 
+    if (output_type != OUTPUT_RAW_BINARY) {
         fprintf(fo, "/* File generated automatically by the QuickJS compiler. */\n"
             "\n"
             );
 
-    if (output_type != OUTPUT_C && output_type != OUTPUT_RAW_BINARY) {
-        fprintf(fo, "#include \"quickjs-libc.h\"\n"
+        if (output_type != OUTPUT_C) {
+            fprintf(fo, "#include \"quickjs-libc.h\"\n"
                 "\n"
                 );
-    } else {
-        if (output_type != OUTPUT_RAW_BINARY) 
+        } else {
             fprintf(fo, "#include <inttypes.h>\n"
                 "\n"
                 );
+        }
     }
 
     for(i = optind; i < argc; i++) {
