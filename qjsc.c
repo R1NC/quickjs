@@ -36,6 +36,13 @@
 #include "cutils.h"
 #include "quickjs-libc.h"
 
+typedef enum {
+    OUTPUT_C,
+    OUTPUT_C_MAIN,
+    OUTPUT_EXECUTABLE,
+    OUTPUT_RAW_BINARY
+} OutputTypeEnum;
+
 typedef struct {
     char *name;
     char *short_name;
@@ -155,24 +162,29 @@ static void get_c_name(char *buf, size_t buf_size, const char *file)
     *q = '\0';
 }
 
-static void dump_hex(FILE *f, const uint8_t *buf, size_t len)
+static void dump_hex(FILE *f, const uint8_t *buf, size_t len, OutputTypeEnum output_type)
 {
     size_t i, col;
     col = 0;
     for(i = 0; i < len; i++) {
-        fprintf(f, " 0x%02x,", buf[i]);
+        if (output_type != OUTPUT_RAW_BINARY)
+            fprintf(f, " 0x%02x,", buf[i]);
+        else
+            fprintf(f, "%c,", buf[i]);
         if (++col == 8) {
-            fprintf(f, "\n");
+            if (output_type != OUTPUT_RAW_BINARY)
+                fprintf(f, "\n");
             col = 0;
         }
     }
-    if (col != 0)
+    if (output_type != OUTPUT_RAW_BINARY && col != 0)
         fprintf(f, "\n");
 }
 
 static void output_object_code(JSContext *ctx,
                                FILE *fo, JSValueConst obj, const char *c_name,
-                               BOOL load_only)
+                               BOOL load_only,
+                               OutputTypeEnum output_type)
 {
     uint8_t *out_buf;
     size_t out_buf_len;
@@ -188,12 +200,15 @@ static void output_object_code(JSContext *ctx,
 
     namelist_add(&cname_list, c_name, NULL, load_only);
 
-    fprintf(fo, "const uint32_t %s_size = %u;\n\n",
-            c_name, (unsigned int)out_buf_len);
-    fprintf(fo, "const uint8_t %s[%u] = {\n",
-            c_name, (unsigned int)out_buf_len);
-    dump_hex(fo, out_buf, out_buf_len);
-    fprintf(fo, "};\n\n");
+    if (output_type != OUTPUT_RAW_BINARY) 
+        fprintf(fo, "const uint32_t %s_size = %u;\n\n",
+           c_name, (unsigned int)out_buf_len);
+    if (output_type != OUTPUT_RAW_BINARY) 
+        fprintf(fo, "const uint8_t %s[%u] = {\n",
+           c_name, (unsigned int)out_buf_len);
+    dump_hex(fo, out_buf, out_buf_len, output_type);
+    if (output_type != OUTPUT_RAW_BINARY) 
+        fprintf(fo, "};\n\n");
 
     js_free(ctx, out_buf);
 }
@@ -269,7 +284,7 @@ JSModuleDef *jsc_module_loader(JSContext *ctx,
         if (namelist_find(&cname_list, cname)) {
             find_unique_cname(cname, sizeof(cname));
         }
-        output_object_code(ctx, outfile, func_val, cname, TRUE);
+        output_object_code(ctx, outfile, func_val, cname, TRUE, -1);
 
         /* the module is already referenced, so we must free it */
         m = JS_VALUE_GET_PTR(func_val);
@@ -281,7 +296,8 @@ JSModuleDef *jsc_module_loader(JSContext *ctx,
 static void compile_file(JSContext *ctx, FILE *fo,
                          const char *filename,
                          const char *c_name1,
-                         int module)
+                         int module,
+                         OutputTypeEnum output_type)
 {
     uint8_t *buf;
     char c_name[1024];
@@ -314,7 +330,7 @@ static void compile_file(JSContext *ctx, FILE *fo,
     } else {
         get_c_name(c_name, sizeof(c_name), filename);
     }
-    output_object_code(ctx, fo, obj, c_name, FALSE);
+    output_object_code(ctx, fo, obj, c_name, FALSE, output_type);
     JS_FreeValue(ctx, obj);
 }
 
@@ -353,7 +369,8 @@ void help(void)
            "-M module_name[,cname] add initialization code for an external C module\n"
            "-x          byte swapped output\n"
            "-p prefix   set the prefix of the generated C names\n"
-           "-S n        set the maximum stack size to 'n' bytes (default=%d)\n",
+           "-S n        set the maximum stack size to 'n' bytes (default=%d)\n"
+           "-Z          output a raw binary file(out.qjsb)\n",
            JS_DEFAULT_STACK_SIZE);
 #ifdef CONFIG_LTO
     {
@@ -473,13 +490,6 @@ static int output_executable(const char *out_filename, const char *cfilename,
 }
 #endif
 
-
-typedef enum {
-    OUTPUT_C,
-    OUTPUT_C_MAIN,
-    OUTPUT_EXECUTABLE,
-} OutputTypeEnum;
-
 int main(int argc, char **argv)
 {
     int c, i, verbose;
@@ -513,7 +523,7 @@ int main(int argc, char **argv)
     namelist_add(&cmodule_list, "os", "os", 0);
 
     for(;;) {
-        c = getopt(argc, argv, "ho:cN:f:mxevM:p:S:D:");
+        c = getopt(argc, argv, "ho:cN:f:mxevM:p:S:D:Z");
         if (c == -1)
             break;
         switch(c) {
@@ -594,6 +604,9 @@ int main(int argc, char **argv)
         case 'S':
             stack_size = (size_t)strtod(optarg, NULL);
             break;
+        case 'Z':
+            output_type = OUTPUT_RAW_BINARY;
+            break;
         default:
             break;
         }
@@ -605,6 +618,8 @@ int main(int argc, char **argv)
     if (!out_filename) {
         if (output_type == OUTPUT_EXECUTABLE) {
             out_filename = "a.out";
+        } else if (output_type == OUTPUT_RAW_BINARY) {
+            out_filename = "out.qjsb";
         } else {
             out_filename = "out.c";
         }
@@ -642,23 +657,25 @@ int main(int argc, char **argv)
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, jsc_module_loader, NULL);
 
-    fprintf(fo, "/* File generated automatically by the QuickJS compiler. */\n"
+    if (output_type != OUTPUT_RAW_BINARY) 
+        fprintf(fo, "/* File generated automatically by the QuickJS compiler. */\n"
             "\n"
             );
 
-    if (output_type != OUTPUT_C) {
+    if (output_type != OUTPUT_C && output_type != OUTPUT_RAW_BINARY) {
         fprintf(fo, "#include \"quickjs-libc.h\"\n"
                 "\n"
                 );
     } else {
-        fprintf(fo, "#include <inttypes.h>\n"
+        if (output_type != OUTPUT_RAW_BINARY) 
+            fprintf(fo, "#include <inttypes.h>\n"
                 "\n"
                 );
     }
 
     for(i = optind; i < argc; i++) {
         const char *filename = argv[i];
-        compile_file(ctx, fo, filename, cname, module);
+        compile_file(ctx, fo, filename, cname, module, output_type);
         cname = NULL;
     }
 
@@ -670,7 +687,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (output_type != OUTPUT_C) {
+    if (output_type != OUTPUT_C && output_type != OUTPUT_RAW_BINARY) {
         fprintf(fo,
                 "static JSContext *JS_NewCustomContext(JSRuntime *rt)\n"
                 "{\n"
