@@ -3,7 +3,7 @@ project(quickjs C)
 
 set(CMAKE_C_STANDARD 99)
 
-option(COMPILE_QUICKJS_QJSC "Compile qjsc or not" OFF)
+option(COMPILE_QUICKJS_QJSC "Compile qjsc or not" ON)
 option(COMPILE_QUICKJS_QJS "Compile qjs or not" OFF)
 option(COMPILE_QUICKJS_TEST "Compile test or not" OFF)
 
