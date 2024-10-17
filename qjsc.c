@@ -164,20 +164,20 @@ static void get_c_name(char *buf, size_t buf_size, const char *file)
 
 static void dump_hex(FILE *f, const uint8_t *buf, size_t len, OutputTypeEnum output_type)
 {
+    if (output_type == OUTPUT_RAW_BINARY) {
+        fwrite(buf, sizeof(uint8_t), len, f);
+        return;
+    }
     size_t i, col;
     col = 0;
     for(i = 0; i < len; i++) {
-        if (output_type != OUTPUT_RAW_BINARY)
-            fprintf(f, " 0x%02x,", buf[i]);
-        else
-            fprintf(f, "%c,", buf[i]);
+        fprintf(f, " 0x%02x,", buf[i]);
         if (++col == 8) {
-            if (output_type != OUTPUT_RAW_BINARY)
-                fprintf(f, "\n");
+            fprintf(f, "\n");
             col = 0;
         }
     }
-    if (output_type != OUTPUT_RAW_BINARY && col != 0)
+    if (col != 0)
         fprintf(f, "\n");
 }
 
