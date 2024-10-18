@@ -4024,13 +4024,21 @@ JSValue js_std_await(JSContext *ctx, JSValue obj)
 }
 
 void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len,
-                        int load_only)
+                        int flags)
 {
     JSValue obj, val;
-    obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
+    bool x = flags & JS_EVAL_BINARY_FLAG_RAW;
+    uint8_t xbuf[buf_len];
+    if (x) {
+        memset(xbuf, 0, buf_len);
+        for (int i = 0; i < buf_len; i++)
+            xbuf[i] = buf[i] ^ BC_VERSION;
+    }
+
+    obj = JS_ReadObject(ctx, x ? xbuf : buf, buf_len, JS_READ_OBJ_BYTECODE);
     if (JS_IsException(obj))
         goto exception;
-    if (load_only) {
+    if (flags & JS_EVAL_BINARY_FLAG_LOAD_ONLY) {
         if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
             js_module_set_import_meta(ctx, obj, FALSE, FALSE);
         }

@@ -311,6 +311,9 @@ static inline JS_BOOL JS_VALUE_IS_NAN(JSValue v)
    promise. Only allowed with JS_EVAL_TYPE_GLOBAL */
 #define JS_EVAL_FLAG_ASYNC (1 << 7)
 
+#define JS_EVAL_BINARY_FLAG_LOAD_ONLY (1 << 1)
+#define JS_EVAL_BINARY_FLAG_RAW (1 << 2)
+
 typedef JSValue JSCFunction(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 typedef JSValue JSCFunctionMagic(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic);
 typedef JSValue JSCFunctionData(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic, JSValue *func_data);

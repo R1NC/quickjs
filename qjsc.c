@@ -165,7 +165,11 @@ static void get_c_name(char *buf, size_t buf_size, const char *file)
 static void dump_hex(FILE *f, const uint8_t *buf, size_t len, OutputTypeEnum output_type)
 {
     if (output_type == OUTPUT_RAW_BINARY) {
-        fwrite(buf, sizeof(uint8_t), len, f);
+        uint8_t xbuf[len];
+        memset(xbuf, 0, len);
+        for (int i = 0; i < len; i++)
+            xbuf[i] = buf[i] ^ BC_VERSION;
+        fwrite(xbuf, sizeof(uint8_t), len, f);
         return;
     }
     size_t i, col;

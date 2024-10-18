@@ -29,6 +29,12 @@
 #include <string.h>
 #include <inttypes.h>
 
+#ifdef CONFIG_BIGNUM
+#define BC_VERSION 0x43
+#else
+#define BC_VERSION 3
+#endif
+
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 #define force_inline inline __attribute__((always_inline))

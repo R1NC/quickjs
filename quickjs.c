@@ -34739,12 +34739,6 @@ typedef enum BCTagEnum {
 #endif
 } BCTagEnum;
 
-#ifdef CONFIG_BIGNUM
-#define BC_VERSION 0x43
-#else
-#define BC_VERSION 3
-#endif
-
 typedef struct BCWriterState {
     JSContext *ctx;
     DynBuf dbuf;
